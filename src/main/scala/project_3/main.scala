@@ -23,11 +23,15 @@ object main{
 
     while (remainingVertices >= 1) {
       iteration += 1
+
+      //check if current vertex is already processed
+      //assign random value if unprocessed
       val randomGraph = g.mapVertices((id, attr) => {
         if (attr == 0) scala.util.Random.nextDouble() else attr
       })
 
       val localMinima = randomGraph.aggregateMessages[Double](
+        //(srcId) ---[edgeAttr]---> (dstId)
         triplet => {
           if (triplet.srcAttr > 0 && triplet.dstAttr > 0) {
             if (triplet.srcAttr < triplet.dstAttr) triplet.sendToDst(triplet.srcAttr)
@@ -37,16 +41,35 @@ object main{
         (a, b) => math.min(a, b)
       )
 
-      val newGraph = g.outerJoinVertices(localMinima) { (vid, oldAttr, minNeighbor) =>
-        if (oldAttr == 0) {
-          if (minNeighbor.isEmpty) 1
-          else -1
-        } else oldAttr
+      val updateInclusions = g.outerJoinVertices(localMinima) { (vid, oldAttr, minNeighbor) =>
+        if (minNeighbor.isEmpty && oldAttr == 0) 1
+        else oldAttr
       }
 
+      val exclusionMessages = updateInclusions.aggregateMessages[Int](
+        triplet => {
+          if (triplet.srcAttr == 1) triplet.sendToDst(-1)
+          if (triplet.dstAttr == 1) triplet.sendToSrc(-1)
+        },
+        (a, b) => a // just sending -1, so any message is fine
+      )
+
+      val newGraph = updateInclusions.outerJoinVertices(exclusionMessages) {
+        case (vid, attr, Some(msg)) if (attr == 0 || attr == -1) => msg  // mark vertex w msg as -1
+        case (vid, attr, _) if attr == 1 => attr // when 1 leave it unchanged
+        case (vid, attr, _) if (attr != 1 && attr != -1) => 0 //reset others
+      }
+  
       g = newGraph
-      remainingVertices = g.vertices.filter { case (_, attr) => attr == 0 }.count()
+      remainingVertices = g.vertices.filter { case (_, attr) => (attr != 1 && attr != -1)}.count()
+
+      // g.vertices.collect().foreach {
+      //   case(id, attr) => println("-----------------------" + id + ": " + attr + "-----------------------")
+      // }
     }
+    println("==================================")
+    println(s"Completed with $iteration iterations")
+    println("==================================")
 
     g
   }
