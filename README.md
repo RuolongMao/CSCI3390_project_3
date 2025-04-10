@@ -1,5 +1,6 @@
 # Large Scale Data Processing: Project 3
 
+**Group Member: Hoiting Mok, Ruolong Mao**
 
 1. **(4 points)** Implement the `verifyMIS` function. The function accepts a Graph[Int, Int] object as its input. Each vertex of the graph is labeled with 1 or -1, indicating whether or not a vertex is in the MIS. `verifyMIS` should return `true` if the labeled vertices form an MIS and `false` otherwise. To execute the function, run the following:
 ```
